@@ -76,45 +76,65 @@ canvas.addEventListener('click', () => {
     if (gameState === 'gameover') resetGame();
 });
 
-// ポスト文言の修正
 postBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // 「私は n 秒で洗脳によって狂いました！」に変更
     const text = encodeURIComponent(`私は ${finalScore.toFixed(1)} 秒で洗脳によって狂いました！`);
     const url = encodeURIComponent("https://teikishikenkaijyou.github.io/sennou/");
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
 });
 
 class Enemy {
-    constructor(difficultyLevel) {
-        const side = Math.floor(Math.random() * 4);
-        if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
-        else if (side === 1) { this.x = canvas.width + 60; this.y = Math.random() * canvas.height; }
-        else if (side === 2) { this.x = Math.random() * canvas.width; this.y = canvas.height + 60; }
-        else { this.x = -60; this.y = Math.random() * canvas.height; }
+    constructor(difficultyLevel, type = 'kanji') { // type引数を追加しデフォルトを'kanji'に
+        this.type = type; // 敵のタイプを保存
 
-        this.char = enemyChars[Math.floor(Math.random() * enemyChars.length)];
-        this.fontSize = (Math.random() * 30 + 24) + (difficultyLevel * 0.4);
-        this.radius = this.fontSize * 0.42;
-        this.rotation = Math.random() * Math.PI * 2;
-        this.rotationSpeed = (Math.random() - 0.5) * (0.08 + difficultyLevel * 0.005);
-        const targetX = (canvas.width / 2) + (Math.random() - 0.5) * 600;
-        const targetY = (canvas.height / 2) + (Math.random() - 0.5) * 600;
-        const speed = (1.5 + Math.random() * 2) + (difficultyLevel * 0.15);
-        const angle = Math.atan2(targetY - this.y, targetX - this.x);
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
+        if (this.type === 'kanji') {
+            const side = Math.floor(Math.random() * 4);
+            if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
+            else if (side === 1) { this.x = canvas.width + 60; this.y = Math.random() * canvas.height; }
+            else if (side === 2) { this.x = Math.random() * canvas.width; this.y = canvas.height + 60; }
+            else { this.x = -60; this.y = Math.random() * canvas.height; }
+
+            this.char = enemyChars[Math.floor(Math.random() * enemyChars.length)];
+            this.fontSize = (Math.random() * 30 + 24) + (difficultyLevel * 0.4);
+            this.radius = this.fontSize * 0.42;
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotationSpeed = (Math.random() - 0.5) * (0.08 + difficultyLevel * 0.005);
+            const targetX = (canvas.width / 2) + (Math.random() - 0.5) * 600;
+            const targetY = (canvas.height / 2) + (Math.random() - 0.5) * 600;
+            const speed = (1.5 + Math.random() * 2) + (difficultyLevel * 0.15);
+            const angle = Math.atan2(targetY - this.y, targetX - this.x);
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+        } else {
+            // --- 修正：白い点（ドット敵）の生成ロジックを復活 ---
+            const fromLeft = Math.random() > 0.5;
+            this.x = fromLeft ? -30 : canvas.width + 30;
+            this.y = Math.random() * canvas.height;
+            this.radius = 5; // 点の当たり判定半径
+            this.vx = fromLeft ? 1.2 : -1.2; // 左右にゆっくり移動
+            this.vy = 0;
+            this.rotation = 0; this.rotationSpeed = 0; // 点は回転しない
+        }
     }
     update() {
         this.x += this.vx; this.y += this.vy;
-        this.rotation += this.rotationSpeed;
+        if (this.type === 'kanji') this.rotation += this.rotationSpeed;
     }
     draw() {
-        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
-        ctx.font = `600 ${this.fontSize}px ${kakuGothic}`;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(this.char, 0, 0); ctx.restore();
+        if (this.type === 'kanji') {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
+            ctx.font = `600 ${this.fontSize}px ${kakuGothic}`;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(this.char, 0, 0); ctx.restore();
+        } else {
+            // --- 修正：白い点（ドット敵）の描画ロジックを復活 ---
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            ctx.closePath();
+        }
     }
 }
 
@@ -143,7 +163,12 @@ function gameLoop() {
         const elapsedSec = (Date.now() - startTime) / 1000;
         scoreElement.innerText = elapsedSec.toFixed(1);
 
-        if (frameCount % Math.max(5, Math.floor(25 - (elapsedSec * 0.8))) === 0) enemies.push(new Enemy(elapsedSec));
+        // --- 修正：敵生成ロジック ---
+        // 漢字敵の生成（難易度に合わせて頻度アップ）
+        if (frameCount % Math.max(5, Math.floor(25 - (elapsedSec * 0.8))) === 0) enemies.push(new Enemy(elapsedSec, 'kanji'));
+        
+        // 白い点敵の生成（48フレームごと）
+        if (frameCount % 48 === 0) enemies.push(new Enemy(elapsedSec, 'dot'));
 
         ctx.font = `bold 28px ${kakuGothic}`;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -155,7 +180,7 @@ function gameLoop() {
         }
         ctx.fillText(centerText, centerX, centerY);
 
-        if (playerSettings.loaded) ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.h/2, playerSettings.w, playerSettings.h);
+        if (playerSettings.loaded) ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.y/2, playerSettings.w, playerSettings.h);
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i]; e.update(); e.draw();
@@ -166,7 +191,8 @@ function gameLoop() {
     } else if (gameState === 'gameover') {
         const centerX = canvas.width / 2, centerY = canvas.height / 2;
 
-        if (finalScore >= 30 && resultSettings.loaded) {
+        // --- 修正：隠しリザルトの条件を「30秒」から「18秒」に変更 ---
+        if (finalScore >= 18 && resultSettings.loaded) {
             const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
             const x = (canvas.width - resultImg.width * scale) / 2;
             const y = (canvas.height - resultImg.height * scale) / 2;
@@ -185,7 +211,6 @@ function gameLoop() {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.font = `bold 40px ${kakuGothic}`;
             ctx.fillStyle = "white";
-            // 文言を「洗脳によって狂いました」に変更
             ctx.fillText("洗脳によって狂いました", centerX, centerY - 40);
         }
         
