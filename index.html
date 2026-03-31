@@ -6,7 +6,7 @@
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; 
                font-family: "Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif; }
-        canvas { display: block; } 
+        canvas { display: block; background-color: #000; } 
         #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; color: #ff0000; pointer-events: none; z-index: 10; font-weight: bold; }
         #post-btn {
             position: absolute;
@@ -56,15 +56,13 @@ const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦
 let enemies = [];
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
+// 画像読み込み管理
 const playerImg = new Image();
 playerImg.src = "player.png";
-const playerSettings = { w: 30, h: 30, radius: 12, loaded: false };
-playerImg.onload = () => { playerSettings.loaded = true; };
+const playerSettings = { w: 30, h: 30, radius: 12 };
 
 const resultImg = new Image();
 resultImg.src = "result.png";
-const resultSettings = { loaded: false };
-resultImg.onload = () => { resultSettings.loaded = true; };
 
 window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX;
@@ -74,9 +72,3 @@ window.addEventListener('mousemove', (e) => {
 canvas.addEventListener('click', () => {
     if (gameState === 'gameover') resetGame();
 });
-
-postBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const text = encodeURIComponent(`私は ${finalScore.toFixed(1)} 秒で洗脳によって狂いました！`);
-    const url = encodeURIComponent("https://teikishikenkaijyou.github.io/sennou/");
-    window.
