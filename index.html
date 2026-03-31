@@ -56,7 +56,6 @@ const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦
 let enemies = [];
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
-// 画像設定
 const playerImg = new Image();
 playerImg.src = "player.png";
 const playerSettings = { w: 30, h: 30, radius: 12, loaded: false };
@@ -84,9 +83,8 @@ postBtn.addEventListener('click', (e) => {
 });
 
 class Enemy {
-    constructor(difficultyLevel, type = 'kanji') { // type引数を追加しデフォルトを'kanji'に
-        this.type = type; // 敵のタイプを保存
-
+    constructor(difficultyLevel, type = 'kanji') {
+        this.type = type;
         if (this.type === 'kanji') {
             const side = Math.floor(Math.random() * 4);
             if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
@@ -106,14 +104,14 @@ class Enemy {
             this.vx = Math.cos(angle) * speed;
             this.vy = Math.sin(angle) * speed;
         } else {
-            // --- 修正：白い点（ドット敵）の生成ロジックを復活 ---
             const fromLeft = Math.random() > 0.5;
             this.x = fromLeft ? -30 : canvas.width + 30;
             this.y = Math.random() * canvas.height;
-            this.radius = 5; // 点の当たり判定半径
-            this.vx = fromLeft ? 1.2 : -1.2; // 左右にゆっくり移動
+            this.radius = 5;
+            this.vx = fromLeft ? 2.5 : -2.5;
             this.vy = 0;
-            this.rotation = 0; this.rotationSpeed = 0; // 点は回転しない
+            this.rotation = 0; 
+            this.rotationSpeed = 0;
         }
     }
     update() {
@@ -128,10 +126,9 @@ class Enemy {
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(this.char, 0, 0); ctx.restore();
         } else {
-            // --- 修正：白い点（ドット敵）の描画ロジックを復活 ---
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "#fff";
+            ctx.fillStyle = "white";
             ctx.fill();
             ctx.closePath();
         }
@@ -157,18 +154,13 @@ function drawBackground() {
 function gameLoop() {
     if (gameState === 'playing') {
         const centerX = canvas.width / 2, centerY = canvas.height / 2;
-
         drawBackground();
         frameCount++;
         const elapsedSec = (Date.now() - startTime) / 1000;
         scoreElement.innerText = elapsedSec.toFixed(1);
 
-        // --- 修正：敵生成ロジック ---
-        // 漢字敵の生成（難易度に合わせて頻度アップ）
         if (frameCount % Math.max(5, Math.floor(25 - (elapsedSec * 0.8))) === 0) enemies.push(new Enemy(elapsedSec, 'kanji'));
-        
-        // 白い点敵の生成（48フレームごと）
-        if (frameCount % 48 === 0) enemies.push(new Enemy(elapsedSec, 'dot'));
+        if (frameCount % 40 === 0) enemies.push(new Enemy(elapsedSec, 'dot'));
 
         ctx.font = `bold 28px ${kakuGothic}`;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -180,7 +172,10 @@ function gameLoop() {
         }
         ctx.fillText(centerText, centerX, centerY);
 
-        if (playerSettings.loaded) ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.y/2, playerSettings.w, playerSettings.h);
+        // 自機の描画（修正完了：h/2を使用）
+        if (playerSettings.loaded) {
+            ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.h/2, playerSettings.w, playerSettings.h);
+        }
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i]; e.update(); e.draw();
@@ -190,17 +185,13 @@ function gameLoop() {
         }
     } else if (gameState === 'gameover') {
         const centerX = canvas.width / 2, centerY = canvas.height / 2;
-
-        // --- 修正：隠しリザルトの条件を「30秒」から「18秒」に変更 ---
         if (finalScore >= 18 && resultSettings.loaded) {
             const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
             const x = (canvas.width - resultImg.width * scale) / 2;
             const y = (canvas.height - resultImg.height * scale) / 2;
             ctx.drawImage(resultImg, x, y, resultImg.width * scale, resultImg.height * scale);
-            
             ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             ctx.font = `bold 60px ${kakuGothic}`;
             ctx.fillStyle = "#fff";
             ctx.shadowBlur = 15; ctx.shadowColor = "red";
@@ -213,7 +204,6 @@ function gameLoop() {
             ctx.fillStyle = "white";
             ctx.fillText("洗脳によって狂いました", centerX, centerY - 40);
         }
-        
         ctx.font = `bold 24px ${kakuGothic}`;
         ctx.fillStyle = "white";
         ctx.fillText(`RECORD: ${finalScore.toFixed(1)} SEC`, centerX, centerY + 30);
@@ -234,7 +224,6 @@ window.onload = () => {
     resetGame();
     gameLoop();
 };
-
 window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 </script>
 </body>
