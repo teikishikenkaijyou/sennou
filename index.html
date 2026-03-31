@@ -2,29 +2,51 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>洗脳文字避けゲーム - 精密回避 -</title>
+    <title>洗脳文字避けゲーム - 深淵の追跡者 -</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; 
                font-family: "Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif; }
         canvas { display: block; cursor: none; }
         #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; color: #ff0000; pointer-events: none; z-index: 10; font-weight: bold; }
+        /* ポストボタンのスタイル */
+        #post-btn {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #1da1f2;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            display: none; /* 初期は隠す */
+            font-weight: bold;
+            z-index: 20;
+            transition: 0.2s;
+        }
+        #post-btn:hover { background-color: #0d8bd9; transform: translate(-50%, -50%) scale(1.1); }
     </style>
 </head>
 <body>
 <div id="ui">生存時間: <span id="score">0</span>秒</div>
+<button id="post-btn">𝕏 にポストする</button>
 <canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
+const postBtn = document.getElementById('post-btn');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let gameState = 'playing';
+let gameState = 'playing'; // 'playing', 'explosion', 'gameover'
 let startTime = Date.now();
 let frameCount = 0;
+let finalScore = 0;
 
 const kakuGothic = '"Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif';
 const centerText = "全てあなたの所為です。";
@@ -35,19 +57,39 @@ const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦
 let enemies = [];
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
+// --- 自機（プレイヤーアイコン）画像の設定 ---
+const playerImg = new Image();
+playerImg.src = "player.png"; // sisaku1リポジトリ用
+const playerSettings = { w: 30, h: 30, radius: 12, loaded: false };
+playerImg.onload = () => { playerSettings.loaded = true; };
+
+// --- リザルト背景（油そばを持った男性）画像の設定 ---
+const resultImg = new Image();
+resultImg.src = "result.png"; // sisaku1リポジトリ用
+const resultSettings = { loaded: false };
+resultImg.onload = () => { resultSettings.loaded = true; };
+
 window.addEventListener('mousemove', (e) => {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
 });
 
-window.addEventListener('click', () => {
+// キャンバスクリックでリトライ（ボタンクリック時は反応させない）
+canvas.addEventListener('click', () => {
     if (gameState === 'gameover') resetGame();
+});
+
+// ポストボタンのクリックイベント
+postBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // 重なりによるリトライを防ぐ
+    const text = encodeURIComponent(`私は ${finalScore.toFixed(1)} 秒で思考が停止しました！`);
+    const url = encodeURIComponent("https://hino-tyoutyo.github.io/sisaku1/");
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
 });
 
 class Enemy {
     constructor(difficultyLevel, type) {
         this.type = type; 
-        
         if (this.type === 'kanji') {
             const side = Math.floor(Math.random() * 4);
             if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
@@ -61,44 +103,38 @@ class Enemy {
             this.rotation = Math.random() * Math.PI * 2;
             this.rotationSpeed = (Math.random() - 0.5) * (0.08 + difficultyLevel * 0.005);
             
+            // 軌道のランダム化
+            const targetX = (canvas.width / 2) + (Math.random() - 0.5) * 600;
+            const targetY = (canvas.height / 2) + (Math.random() - 0.5) * 600;
+            
             const speed = (1.5 + Math.random() * 2) + (difficultyLevel * 0.15);
-            const angle = Math.atan2(canvas.height / 2 - this.y, canvas.width / 2 - this.x);
+            const angle = Math.atan2(targetY - this.y, targetX - this.x);
             this.vx = Math.cos(angle) * speed;
             this.vy = Math.sin(angle) * speed;
         } else {
-            // ドット：左右から反対側へ平行移動
             const fromLeft = Math.random() > 0.5;
             this.x = fromLeft ? -30 : canvas.width + 30;
             this.y = Math.random() * canvas.height;
             this.radius = 5;
             this.vx = fromLeft ? 1.2 : -1.2;
-            this.vy = 0; 
+            this.vy = 0;
         }
     }
-
     update() {
         this.x += this.vx;
         this.y += this.vy;
         if (this.type === 'kanji') this.rotation += this.rotationSpeed;
     }
-
     draw() {
         if (this.type === 'kanji') {
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.rotate(this.rotation);
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
             ctx.font = `600 ${this.fontSize}px ${kakuGothic}`;
             ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.char, 0, 0);
-            ctx.restore();
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(this.char, 0, 0); ctx.restore();
         } else {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "#fff";
-            ctx.fill();
-            ctx.closePath();
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff"; ctx.fill(); ctx.closePath();
         }
     }
 }
@@ -108,13 +144,12 @@ function resetGame() {
     gameState = 'playing';
     startTime = Date.now();
     frameCount = 0;
+    postBtn.style.display = 'none'; // ボタンを隠す
 }
 
 function drawBackground() {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const maxRadius = Math.max(canvas.width, canvas.height);
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+    const centerX = canvas.width / 2, centerY = canvas.height / 2;
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(canvas.width, canvas.height));
     gradient.addColorStop(0, '#1a0033'); 
     gradient.addColorStop(0.6, '#050010');
     gradient.addColorStop(1, '#000000');
@@ -123,78 +158,87 @@ function drawBackground() {
 }
 
 function gameLoop() {
-    drawBackground();
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    const centerX = canvas.width / 2, centerY = canvas.height / 2;
 
     if (gameState === 'playing') {
+        drawBackground();
         frameCount++;
         const elapsedMS = Date.now() - startTime;
         const elapsedSec = elapsedMS / 1000;
         scoreElement.innerText = elapsedSec.toFixed(1);
 
-        // 漢字の生成
-        const kanjiInterval = Math.max(5, Math.floor(25 - (elapsedSec * 0.8)));
-        if (frameCount % kanjiInterval === 0) {
-            enemies.push(new Enemy(elapsedSec, 'kanji'));
-        }
+        if (frameCount % Math.max(5, Math.floor(25 - (elapsedSec * 0.8))) === 0) enemies.push(new Enemy(elapsedSec, 'kanji'));
+        if (frameCount % 48 === 0) enemies.push(new Enemy(elapsedSec, 'dot'));
 
-        // ドットの生成：さらに頻度を半分に (24 -> 48)
-        if (frameCount % 48 === 0) {
-            enemies.push(new Enemy(elapsedSec, 'dot'));
-        }
-
-        // 中心の文字
         ctx.font = `bold 28px ${kakuGothic}`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
         if (elapsedMS < 1000) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-            ctx.fillText(centerText, centerX, centerY);
         } else {
             ctx.fillStyle = "white";
-            ctx.fillText(centerText, centerX, centerY);
-            
             if (mouse.x > centerX - targetBox.w/2 && mouse.x < centerX + targetBox.w/2 &&
                 mouse.y > centerY - targetBox.h/2 && mouse.y < centerY + targetBox.h/2) {
-                gameState = 'gameover';
+                triggerGameOver(elapsedSec);
             }
         }
+        ctx.fillText(centerText, centerX, centerY);
 
-        // 自機
-        ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.strokeStyle = "#ff0000";
-        ctx.stroke();
+        if (playerSettings.loaded) {
+            ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.h/2, playerSettings.w, playerSettings.h);
+        }
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
-            e.update();
-            e.draw();
-
+            e.update(); e.draw();
             const dist = Math.sqrt((e.x - mouse.x)**2 + (e.y - mouse.y)**2);
-            if (dist < e.radius + 5) gameState = 'gameover';
-
-            if (e.x < -300 || e.x > canvas.width + 300 || e.y < -300 || e.y > canvas.height + 300) {
-                enemies.splice(i, 1);
-            }
+            if (dist < e.radius + playerSettings.radius) triggerGameOver(elapsedSec);
+            if (e.x < -300 || e.x > canvas.width + 300 || e.y < -300 || e.y > canvas.height + 300) enemies.splice(i, 1);
         }
-    } else {
-        ctx.fillStyle = "rgba(60, 0, 0, 0.85)";
+
+    } else if (gameState === 'explosion') {
+        // --- 爆破演出（男性の画像へ切り替え） ---
+        if (resultSettings.loaded) {
+            // 画像が読み込まれていれば描画（画面全体に表示）
+            // アスペクト比を保ちつつ画面いっぱい（カバー）にする計算
+            const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
+            const x = (canvas.width - resultImg.width * scale) / 2;
+            const y = (canvas.height - resultImg.height * scale) / 2;
+            ctx.drawImage(resultImg, x, y, resultImg.width * scale, resultImg.height * scale);
+        } else {
+            // 画像読み込み前やエラー時は真っ白な画面
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        // 0.2秒だけ表示してゲームオーバー画面へ
+    } else if (gameState === 'gameover') {
+        // --- 通常のゲームオーバー画面 ---
+        ctx.fillStyle = "rgba(60, 0, 0, 0.95)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.font = `bold 40px ${kakuGothic}`;
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.fillText("思考が停止しました", centerX, centerY);
+        ctx.fillText("思考が停止しました", centerX, centerY - 40);
         ctx.font = `20px ${kakuGothic}`;
-        ctx.fillText(`RECORD: ${scoreElement.innerText} SEC`, centerX, centerY + 60);
-        ctx.fillText("CLICK TO RESTART", centerX, centerY + 120);
+        ctx.fillText(`RECORD: ${finalScore.toFixed(1)} SEC`, centerX, centerY + 20);
+        ctx.fillText("CLICK TO RESTART", centerX, centerY + 140);
+        postBtn.style.display = 'block'; // ボタンを表示
     }
     requestAnimationFrame(gameLoop);
 }
+
+function triggerGameOver(score) {
+    finalScore = score;
+    if (score >= 30) {
+        // 30秒以上の時の演出（爆発 -> 画像へ変更）
+        gameState = 'explosion';
+        // 0.2秒後にリザルト画面へ移行
+        setTimeout(() => { gameState = 'gameover'; }, 200);
+    } else {
+        // 30秒未満は即ゲームオーバー
+        gameState = 'gameover';
+    }
+}
+
 gameLoop();
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
