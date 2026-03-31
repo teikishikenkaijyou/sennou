@@ -83,11 +83,8 @@ postBtn.addEventListener('click', (e) => {
 });
 
 class Enemy {
-    constructor(difficultyLevel, type = 'kanji') {
+    constructor(type = 'kanji') {
         this.type = type;
-        // 速度倍率の計算: 1秒ごとに約5%ずつ速くなる
-        const speedBoost = 1 + (difficultyLevel * 0.05);
-
         if (this.type === 'kanji') {
             const side = Math.floor(Math.random() * 4);
             if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
@@ -96,35 +93,33 @@ class Enemy {
             else { this.x = -60; this.y = Math.random() * canvas.height; }
 
             this.char = enemyChars[Math.floor(Math.random() * enemyChars.length)];
-            this.fontSize = (Math.random() * 30 + 24) + (difficultyLevel * 0.4);
+            this.fontSize = (Math.random() * 30 + 24);
             this.radius = this.fontSize * 0.42;
             this.rotation = Math.random() * Math.PI * 2;
-            this.rotationSpeed = (Math.random() - 0.5) * (0.08 + difficultyLevel * 0.005);
+            this.rotationSpeed = (Math.random() - 0.5) * 0.08;
+            
             const targetX = (canvas.width / 2) + (Math.random() - 0.5) * 600;
             const targetY = (canvas.height / 2) + (Math.random() - 0.5) * 600;
-            
-            // ベース速度に時間経過によるブーストを乗算
-            const baseSpeed = (1.5 + Math.random() * 2);
-            const finalSpeed = baseSpeed * speedBoost;
-
             const angle = Math.atan2(targetY - this.y, targetX - this.x);
-            this.vx = Math.cos(angle) * finalSpeed;
-            this.vy = Math.sin(angle) * finalSpeed;
+            const speed = (1.5 + Math.random() * 2);
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
         } else {
             const fromLeft = Math.random() > 0.5;
             this.x = fromLeft ? -30 : canvas.width + 30;
             this.y = Math.random() * canvas.height;
             this.radius = 5;
-            // 白い点の速度も時間経過で加速
-            this.vx = (fromLeft ? 2.5 : -2.5) * speedBoost;
+            this.vx = fromLeft ? 2.5 : -2.5;
             this.vy = 0;
             this.rotation = 0; 
             this.rotationSpeed = 0;
         }
     }
-    update() {
-        this.x += this.vx; this.y += this.vy;
-        if (this.type === 'kanji') this.rotation += this.rotationSpeed;
+    // 引数に現在の加速倍率(accel)を受け取って移動
+    update(accel) {
+        this.x += this.vx * accel; 
+        this.y += this.vy * accel;
+        if (this.type === 'kanji') this.rotation += this.rotationSpeed * accel;
     }
     draw() {
         if (this.type === 'kanji') {
@@ -134,11 +129,8 @@ class Enemy {
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(this.char, 0, 0); ctx.restore();
         } else {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "white";
-            ctx.fill();
-            ctx.closePath();
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "white"; ctx.fill(); ctx.closePath();
         }
     }
 }
@@ -167,9 +159,11 @@ function gameLoop() {
         const elapsedSec = (Date.now() - startTime) / 1000;
         scoreElement.innerText = elapsedSec.toFixed(1);
 
-        // 敵の生成頻度も徐々に上げる
-        if (frameCount % Math.max(4, Math.floor(25 - (elapsedSec * 1.2))) === 0) enemies.push(new Enemy(elapsedSec, 'kanji'));
-        if (frameCount % Math.max(15, Math.floor(40 - (elapsedSec * 0.5))) === 0) enemies.push(new Enemy(elapsedSec, 'dot'));
+        // --- 加速倍率の計算 (1秒ごとに加速度が増していく) ---
+        const currentAccel = 1 + (elapsedSec * 0.08); // 1秒ごとに8%ずつ全敵が速くなる
+
+        if (frameCount % Math.max(4, Math.floor(25 - (elapsedSec * 1.0))) === 0) enemies.push(new Enemy('kanji'));
+        if (frameCount % Math.max(15, Math.floor(40 - (elapsedSec * 0.5))) === 0) enemies.push(new Enemy('dot'));
 
         ctx.font = `bold 28px ${kakuGothic}`;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -186,10 +180,12 @@ function gameLoop() {
         }
 
         for (let i = enemies.length - 1; i >= 0; i--) {
-            const e = enemies[i]; e.update(); e.draw();
+            const e = enemies[i]; 
+            e.update(currentAccel); // 全ての敵に現在の加速倍率を適用
+            e.draw();
             const dist = Math.sqrt((e.x - mouse.x)**2 + (e.y - mouse.y)**2);
             if (dist < e.radius + playerSettings.radius) triggerGameOver(elapsedSec);
-            if (e.x < -300 || e.x > canvas.width + 300 || e.y < -300 || e.y > canvas.height + 300) enemies.splice(i, 1);
+            if (e.x < -400 || e.x > canvas.width + 400 || e.y < -400 || e.y > canvas.height + 400) enemies.splice(i, 1);
         }
     } else if (gameState === 'gameover') {
         const centerX = canvas.width / 2, centerY = canvas.height / 2;
@@ -228,10 +224,7 @@ function triggerGameOver(score) {
     canvas.style.cursor = 'default'; 
 }
 
-window.onload = () => {
-    resetGame();
-    gameLoop();
-};
+window.onload = () => { resetGame(); gameLoop(); };
 window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
 </script>
 </body>
