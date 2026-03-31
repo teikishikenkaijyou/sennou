@@ -2,15 +2,20 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>洗脳文字避けゲーム - 真実の境界 -</title>
+    <title>定期試験会場</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; 
                font-family: "Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif; }
+        /* 初期状態（プレイ中）はカーソルを隠す */
         canvas { display: block; cursor: none; }
+        /* ゲームオーバー時に適用するクラス（カーソルを表示） */
+        canvas.gameover { cursor: default; }
+        
         #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; color: #ff0000; pointer-events: none; z-index: 10; font-weight: bold; }
+        
         #post-btn {
             position: absolute;
-            top: 75%; /* 少し位置を下げました */
+            top: 75%;
             left: 50%;
             transform: translate(-50%, -50%);
             padding: 12px 24px;
@@ -58,12 +63,12 @@ const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
 // 画像設定
 const playerImg = new Image();
-playerImg.src = "player.png";
+playerImg.src = "player.png"; // sisaku1リポジトリ用
 const playerSettings = { w: 30, h: 30, radius: 12, loaded: false };
 playerImg.onload = () => { playerSettings.loaded = true; };
 
 const resultImg = new Image();
-resultImg.src = "result.png";
+resultImg.src = "result.png"; // sisaku1リポジトリ用
 const resultSettings = { loaded: false };
 resultImg.onload = () => { resultSettings.loaded = true; };
 
@@ -122,6 +127,7 @@ function resetGame() {
     startTime = Date.now();
     frameCount = 0;
     postBtn.style.display = 'none';
+    canvas.classList.remove('gameover'); // カーソルを隠すクラスを削除
 }
 
 function drawBackground() {
@@ -158,52 +164,4 @@ function gameLoop() {
             const e = enemies[i]; e.update(); e.draw();
             const dist = Math.sqrt((e.x - mouse.x)**2 + (e.y - mouse.y)**2);
             if (dist < e.radius + playerSettings.radius) triggerGameOver(elapsedSec);
-            if (e.x < -300 || e.x > canvas.width + 300 || e.y < -300 || e.y > canvas.height + 300) enemies.splice(i, 1);
-        }
-    } else if (gameState === 'gameover') {
-        if (finalScore >= 30 && resultSettings.loaded) {
-            // --- 30秒以上：特別リザルト ---
-            const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
-            const x = (canvas.width - resultImg.width * scale) / 2;
-            const y = (canvas.height - resultImg.height * scale) / 2;
-            ctx.drawImage(resultImg, x, y, resultImg.width * scale, resultImg.height * scale);
-            
-            // 背景を少し暗くして文字を見やすく
-            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            ctx.font = `bold 60px ${kakuGothic}`;
-            ctx.fillStyle = "#fff";
-            ctx.shadowBlur = 15; ctx.shadowColor = "red";
-            ctx.fillText("Congratulations!", centerX, centerY - 40);
-            ctx.shadowBlur = 0;
-        } else {
-            // --- 30秒未満：通常リザルト ---
-            ctx.fillStyle = "rgba(60, 0, 0, 0.95)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.font = `bold 40px ${kakuGothic}`;
-            ctx.fillStyle = "white";
-            ctx.fillText("思考が停止しました", centerX, centerY - 40);
-        }
-        
-        // 共通スコア表示
-        ctx.font = `bold 24px ${kakuGothic}`;
-        ctx.fillStyle = "white";
-        ctx.fillText(`RECORD: ${finalScore.toFixed(1)} SEC`, centerX, centerY + 30);
-        ctx.font = `18px ${kakuGothic}`;
-        ctx.fillText("CLICK TO RESTART", centerX, centerY + 160);
-        postBtn.style.display = 'block';
-    }
-    requestAnimationFrame(gameLoop);
-}
-
-function triggerGameOver(score) {
-    finalScore = score;
-    gameState = 'gameover';
-}
-
-gameLoop();
-window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
-</script>
-</body>
-</html>
+            if (e.
