@@ -8,63 +8,36 @@
                font-family: "Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif; }
         canvas { display: block; background-color: #000; } 
         #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; color: #ff0000; pointer-events: none; z-index: 10; font-weight: bold; }
-        
-        #btn-container {
+        #post-btn {
             position: absolute;
             top: 75%;
             left: 50%;
             transform: translate(-50%, -50%);
-            display: none; 
-            gap: 20px;
-            z-index: 20;
-            align-items: center;
-        }
-
-        .action-btn {
             padding: 12px 24px;
             font-size: 18px;
+            background-color: #1da1f2;
             color: white;
             border: none;
             border-radius: 25px;
             cursor: pointer;
+            display: none;
             font-weight: bold;
+            z-index: 20;
             transition: 0.2s;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            text-decoration: none;
         }
-
-        #post-btn { background-color: #1da1f2; }
-        #post-btn:hover { background-color: #0d8bd9; transform: scale(1.1); }
-
-        #yt-btn { background-color: #ff0000; }
-        #yt-btn:hover { background-color: #cc0000; transform: scale(1.1); }
-        
-        /* SVGアイコンのサイズ調整 */
-        .btn-icon { width: 24px; height: 24px; margin-right: 8px; fill: white; }
+        #post-btn:hover { background-color: #0d8bd9; transform: translate(-50%, -50%) scale(1.1); }
     </style>
 </head>
 <body>
 <div id="ui">生存時間: <span id="score">0</span>秒</div>
-
-<div id="btn-container">
-    <button id="post-btn" class="action-btn">𝕏 にポストする</button>
-    <a href="https://youtu.be/QjcmIFyqixs" target="_blank" id="yt-btn" class="action-btn">
-        <svg class="btn-icon" viewBox="0 0 24 24">
-            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 4-8 4z"/>
-        </svg>
-        YouTube
-    </a>
-</div>
-
+<button id="post-btn">𝕏 にポストする</button>
 <canvas id="gameCanvas"></canvas>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
-const btnContainer = document.getElementById('btn-container');
 const postBtn = document.getElementById('post-btn');
 
 canvas.width = window.innerWidth;
@@ -83,12 +56,11 @@ const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦
 let enemies = [];
 const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
 
-// 自分の画像
+// 画像読み込み管理
 const playerImg = new Image();
 playerImg.src = "player.png";
 const playerSettings = { w: 30, h: 30, radius: 12 };
 
-// リザルトの画像
 const resultImg = new Image();
 resultImg.src = "result.png";
 
@@ -165,7 +137,7 @@ function resetGame() {
     gameState = 'playing';
     startTime = Date.now();
     frameCount = 0;
-    btnContainer.style.display = 'none';
+    postBtn.style.display = 'none';
     canvas.style.cursor = 'none'; 
 }
 
@@ -202,13 +174,9 @@ function gameLoop() {
         }
         ctx.fillText(centerText, centerX, centerY);
 
-        // 自機の描画
-        if (playerImg.complete && playerImg.naturalWidth !== 0) {
+        // 自機の描画（画像がロードされている場合のみ）
+        if (playerImg.complete) {
             ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.h/2, playerSettings.w, playerSettings.h);
-        } else {
-            // 万が一画像が読み込めなくても赤い点で代用し、フリーズを防ぐ
-            ctx.fillStyle = "red";
-            ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 5, 0, Math.PI*2); ctx.fill();
         }
 
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -221,9 +189,7 @@ function gameLoop() {
         }
     } else if (gameState === 'gameover') {
         const centerX = canvas.width / 2, centerY = canvas.height / 2;
-        
-        // リザルト画像の描画（18秒以上の時のみ）
-        if (finalScore >= 18 && resultImg.complete && resultImg.naturalWidth !== 0) {
+        if (finalScore >= 18 && resultImg.complete) {
             const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
             const x = (canvas.width - resultImg.width * scale) / 2;
             const y = (canvas.height - resultImg.height * scale) / 2;
@@ -242,13 +208,12 @@ function gameLoop() {
             ctx.fillStyle = "white";
             ctx.fillText("洗脳によって狂いました", centerX, centerY - 40);
         }
-        
         ctx.font = `bold 24px ${kakuGothic}`;
         ctx.fillStyle = "white";
         ctx.fillText(`RECORD: ${finalScore.toFixed(1)} SEC`, centerX, centerY + 30);
         ctx.font = `18px ${kakuGothic}`;
         ctx.fillText("CLICK TO RESTART", centerX, centerY + 160);
-        btnContainer.style.display = 'flex';
+        postBtn.style.display = 'block';
     }
     requestAnimationFrame(gameLoop);
 }
@@ -259,17 +224,11 @@ function triggerGameOver(score) {
     canvas.style.cursor = 'default'; 
 }
 
-// 起動をより確実に
-function init() {
+// ページ読み込み完了後に確実に開始する
+window.addEventListener('load', () => {
     resetGame();
     gameLoop();
-}
-
-if (document.readyState === 'complete') {
-    init();
-} else {
-    window.addEventListener('load', init);
-}
+});
 
 window.addEventListener('resize', () => { 
     canvas.width = window.innerWidth; 
