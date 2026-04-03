@@ -9,13 +9,12 @@
         canvas { display: block; background-color: #000; } 
         #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; color: #ff0000; pointer-events: none; z-index: 10; font-weight: bold; }
         
-        /* ボタンコンテナのスタイル */
         #btn-container {
             position: absolute;
             top: 75%;
             left: 50%;
             transform: translate(-50%, -50%);
-            display: none; /* ゲームオーバー時のみ表示 */
+            display: none; 
             gap: 20px;
             z-index: 20;
             align-items: center;
@@ -41,7 +40,9 @@
 
         #yt-btn { background-color: #ff0000; }
         #yt-btn:hover { background-color: #cc0000; transform: scale(1.1); }
-        #yt-btn img { width: 24px; height: auto; margin-right: 8px; }
+        
+        /* SVGアイコンのサイズ調整 */
+        .btn-icon { width: 24px; height: 24px; margin-right: 8px; fill: white; }
     </style>
 </head>
 <body>
@@ -50,7 +51,10 @@
 <div id="btn-container">
     <button id="post-btn" class="action-btn">𝕏 にポストする</button>
     <a href="https://youtu.be/QjcmIFyqixs" target="_blank" id="yt-btn" class="action-btn">
-        <img src="https://www.youtube.com/s/desktop/28ea0473/img/favicon_32x32.png" alt="YT"> YouTube
+        <svg class="btn-icon" viewBox="0 0 24 24">
+            <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 4-8 4z"/>
+        </svg>
+        YouTube
     </a>
 </div>
 
@@ -74,4 +78,203 @@ let finalScore = 0;
 const kakuGothic = '"Hiragino Kaku Gothic ProN", "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif';
 const centerText = "全てあなたの所為です。";
 const targetBox = { w: 320, h: 45 }; 
-const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦戯言避様針傷跡隠病心慰様視神経麻痺虚無思想群喜悲長年時経屍感情求全所為海中彷徨続見一摘光甘全掻集足元及像突然呼吸絶鋼器壊前向風吹漂糸洗脳狂路線変動予想裏切意志持始機械掴
+const enemyChars = "一心不乱描出妙笛音心地好感瞬間聴神経焼焦戯言避様針傷跡隠病心慰様視神経麻痺虚無思想群喜悲長年時経屍感情求全所為海中彷徨続見一摘光甘全掻集足元及像突然呼吸絶鋼器壊前向風吹漂糸洗脳狂路線変動予想裏切意志持始機械掴放繰返彼今迄演技続消記憶隅駆巡得体知偶像彫心鏤骨末抱刃向裏付言葉紡奮立偶像楽様針向音色奏四面楚歌生壊既枯尽屍優美求全所為海中彷徨続見一摘光甘全掻集足元及像突然呼吸絶鋼器壊前向風吹漂糸洗脳狂路線変動予想裏切意志持始機械掴放繰返彼今迄演技続消形骸化愛他力本願怠惰".split("");
+
+let enemies = [];
+const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+
+// 自分の画像
+const playerImg = new Image();
+playerImg.src = "player.png";
+const playerSettings = { w: 30, h: 30, radius: 12 };
+
+// リザルトの画像
+const resultImg = new Image();
+resultImg.src = "result.png";
+
+window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+
+canvas.addEventListener('click', () => {
+    if (gameState === 'gameover') resetGame();
+});
+
+postBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const text = encodeURIComponent(`私は ${finalScore.toFixed(1)} 秒で洗脳によって狂いました！`);
+    const url = encodeURIComponent("https://teikishikenkaijyou.github.io/sennou/");
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+});
+
+class Enemy {
+    constructor(type = 'kanji') {
+        this.type = type;
+        if (this.type === 'kanji') {
+            const side = Math.floor(Math.random() * 4);
+            if (side === 0) { this.x = Math.random() * canvas.width; this.y = -60; }
+            else if (side === 1) { this.x = canvas.width + 60; this.y = Math.random() * canvas.height; }
+            else if (side === 2) { this.x = Math.random() * canvas.width; this.y = canvas.height + 60; }
+            else { this.x = -60; this.y = Math.random() * canvas.height; }
+
+            this.char = enemyChars[Math.floor(Math.random() * enemyChars.length)];
+            this.fontSize = (Math.random() * 30 + 24);
+            this.radius = this.fontSize * 0.42;
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotationSpeed = (Math.random() - 0.5) * 0.08;
+            
+            const targetX = (canvas.width / 2) + (Math.random() - 0.5) * 600;
+            const targetY = (canvas.height / 2) + (Math.random() - 0.5) * 600;
+            const angle = Math.atan2(targetY - this.y, targetX - this.x);
+            const speed = (1.5 + Math.random() * 2);
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+        } else {
+            const fromLeft = Math.random() > 0.5;
+            this.x = fromLeft ? -30 : canvas.width + 30;
+            this.y = Math.random() * canvas.height;
+            this.radius = 5;
+            this.vx = fromLeft ? 2.5 : -2.5;
+            this.vy = 0;
+            this.rotation = 0; 
+            this.rotationSpeed = 0;
+        }
+    }
+    update(accel) {
+        this.x += this.vx * accel; 
+        this.y += this.vy * accel;
+        if (this.type === 'kanji') this.rotation += this.rotationSpeed * accel;
+    }
+    draw() {
+        if (this.type === 'kanji') {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.rotation);
+            ctx.font = `600 ${this.fontSize}px ${kakuGothic}`;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(this.char, 0, 0); ctx.restore();
+        } else {
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "white"; ctx.fill(); ctx.closePath();
+        }
+    }
+}
+
+function resetGame() {
+    enemies = [];
+    gameState = 'playing';
+    startTime = Date.now();
+    frameCount = 0;
+    btnContainer.style.display = 'none';
+    canvas.style.cursor = 'none'; 
+}
+
+function drawBackground() {
+    const centerX = canvas.width / 2, centerY = canvas.height / 2;
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(canvas.width, canvas.height));
+    gradient.addColorStop(0, 'rgb(51, 20, 41)'); 
+    gradient.addColorStop(0.7, 'rgb(15, 5, 10)'); 
+    gradient.addColorStop(1, '#000000');
+    ctx.fillStyle = gradient; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function gameLoop() {
+    if (gameState === 'playing') {
+        const centerX = canvas.width / 2, centerY = canvas.height / 2;
+        drawBackground();
+        frameCount++;
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        scoreElement.innerText = elapsedSec.toFixed(1);
+
+        const currentAccel = 1 + (elapsedSec * 0.08);
+
+        if (frameCount % Math.max(4, Math.floor(25 - (elapsedSec * 1.0))) === 0) enemies.push(new Enemy('kanji'));
+        if (frameCount % Math.max(15, Math.floor(40 - (elapsedSec * 0.5))) === 0) enemies.push(new Enemy('dot'));
+
+        ctx.font = `bold 28px ${kakuGothic}`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        if (elapsedSec < 1.0) ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+        else {
+            ctx.fillStyle = "white";
+            if (mouse.x > centerX - targetBox.w/2 && mouse.x < centerX + targetBox.w/2 &&
+                mouse.y > centerY - targetBox.h/2 && mouse.y < centerY + targetBox.h/2) triggerGameOver(elapsedSec);
+        }
+        ctx.fillText(centerText, centerX, centerY);
+
+        // 自機の描画
+        if (playerImg.complete && playerImg.naturalWidth !== 0) {
+            ctx.drawImage(playerImg, mouse.x - playerSettings.w/2, mouse.y - playerSettings.h/2, playerSettings.w, playerSettings.h);
+        } else {
+            // 万が一画像が読み込めなくても赤い点で代用し、フリーズを防ぐ
+            ctx.fillStyle = "red";
+            ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 5, 0, Math.PI*2); ctx.fill();
+        }
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i]; 
+            e.update(currentAccel);
+            e.draw();
+            const dist = Math.sqrt((e.x - mouse.x)**2 + (e.y - mouse.y)**2);
+            if (dist < e.radius + playerSettings.radius) triggerGameOver(elapsedSec);
+            if (e.x < -400 || e.x > canvas.width + 400 || e.y < -400 || e.y > canvas.height + 400) enemies.splice(i, 1);
+        }
+    } else if (gameState === 'gameover') {
+        const centerX = canvas.width / 2, centerY = canvas.height / 2;
+        
+        // リザルト画像の描画（18秒以上の時のみ）
+        if (finalScore >= 18 && resultImg.complete && resultImg.naturalWidth !== 0) {
+            const scale = Math.max(canvas.width / resultImg.width, canvas.height / resultImg.height);
+            const x = (canvas.width - resultImg.width * scale) / 2;
+            const y = (canvas.height - resultImg.height * scale) / 2;
+            ctx.drawImage(resultImg, x, y, resultImg.width * scale, resultImg.height * scale);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = `bold 60px ${kakuGothic}`;
+            ctx.fillStyle = "#fff";
+            ctx.shadowBlur = 15; ctx.shadowColor = "red";
+            ctx.fillText("Congratulations!", centerX, centerY - 40);
+            ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = "rgba(60, 0, 0, 0.95)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = `bold 40px ${kakuGothic}`;
+            ctx.fillStyle = "white";
+            ctx.fillText("洗脳によって狂いました", centerX, centerY - 40);
+        }
+        
+        ctx.font = `bold 24px ${kakuGothic}`;
+        ctx.fillStyle = "white";
+        ctx.fillText(`RECORD: ${finalScore.toFixed(1)} SEC`, centerX, centerY + 30);
+        ctx.font = `18px ${kakuGothic}`;
+        ctx.fillText("CLICK TO RESTART", centerX, centerY + 160);
+        btnContainer.style.display = 'flex';
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+function triggerGameOver(score) {
+    finalScore = score;
+    gameState = 'gameover';
+    canvas.style.cursor = 'default'; 
+}
+
+// 起動をより確実に
+function init() {
+    resetGame();
+    gameLoop();
+}
+
+if (document.readyState === 'complete') {
+    init();
+} else {
+    window.addEventListener('load', init);
+}
+
+window.addEventListener('resize', () => { 
+    canvas.width = window.innerWidth; 
+    canvas.height = window.innerHeight; 
+});
+</script>
+</body>
+</html>
